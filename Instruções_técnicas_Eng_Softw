@@ -1,0 +1,253 @@
+Arquitetura Geral do Sistema
+
+A arquitetura será monolítica modular com separação lógica de camadas, ideal para projetos acadêmicos integrados:
+
+Frontend (HTML + CSS + JS)
+    ↓
+Flask (Controladores e Rotas)
+    ↓
+Camada de Modelos (SQLAlchemy)
+    ↓
+Banco de Dados SQLite
+
+
+Adicionalmente:
+- Camada /chatbot (para integração com Gemini na Fase 2)
+- Camada /tests (para Pytest e CI/CD na Fase 3)
+
+Estrutura de Pastas Recomendada. Crie o projeto base assim:
+
+apoioja/
+│
+├── app/
+│   ├── __init__.py
+│   ├── routes.py
+│   ├── models.py
+│   ├── static/
+│   │   └── style.css
+│   └── templates/
+│       ├── index.html
+│       └── denuncia.html
+│
+├── run.py
+├── config.py
+├── requirements.txt
+└── apoioja.db (será criado automaticamente)
+
+
+Preparação do Ambiente. Passo 1: Criar o ambiente virtual
+mkdir apoioja
+cd apoioja
+python -m venv venv
+venv\Scripts\activate  # Windows OU  source venv/bin/activate     # Linux/Mac
+
+Passo 2: Instalar as dependências básicas
+python.exe -m pip install --upgrade pip
+pip install flask flask_sqlalchemy flask_cors flask_bcrypt
+pip freeze > requirements.txt
+
+Passo 3: Estruturar o run.py
+from app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+Construir os arquivos principais
+
+run.py
+from app import app
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+app/__init__.py
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///apoioja.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+CORS(app)
+
+from app import routes
+
+
+
+app/models.py
+from app import db
+from datetime import datetime
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(100))
+    description = db.Column(db.Text)
+    location = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+app/routes.py
+from flask import render_template, request, jsonify
+from app import app, db
+from app.models import Report
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/denuncia')
+def denuncia():
+    return render_template('denuncia.html')
+
+@app.route('/api/reports', methods=['POST'])
+def create_report():
+    data = request.get_json()
+    new_report = Report(
+        category=data.get('category'),
+        description=data.get('description'),
+        location=data.get('location')
+    )
+    db.session.add(new_report)
+    db.session.commit()
+    return jsonify({"message": "Denúncia registrada com sucesso!"}), 201
+
+
+app/templates/index.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>ApoioJá - Você não está só</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>💙 ApoioJá</h1>
+        <p>Um espaço seguro e anônimo para pedir ajuda e denunciar.</p>
+        <a href="/denuncia" class="btn">Fazer uma Denúncia</a>
+        <button onclick="panicButton()" class="btn-danger">🕵️ Modo Silêncio</button>
+    </div>
+<script>
+function panicButton() {
+  localStorage.clear();
+  window.location.href = 'https://www.google.com';
+}
+</script>
+</body>
+</html>
+
+
+
+app/templates/denuncia.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Nova Denúncia - ApoioJá</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Registrar Denúncia</h2>
+        <form id="formDenuncia">
+            <label>Categoria</label>
+            <input type="text" id="categoria" required>
+
+            <label>Descrição</label>
+            <textarea id="descricao" required></textarea>
+
+            <label>Local</label>
+            <input type="text" id="local" required>
+
+            <button type="submit" class="btn">Enviar Denúncia</button>
+        </form>
+        <p id="mensagem"></p>
+    </div>
+
+<script>
+document.getElementById("formDenuncia").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = {
+    category: document.getElementById("categoria").value,
+    description: document.getElementById("descricao").value,
+    location: document.getElementById("local").value
+  };
+
+  const response = await fetch("/api/reports", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data)
+  });
+  const result = await response.json();
+  document.getElementById("mensagem").innerText = result.message;
+});
+</script>
+</body>
+</html>
+
+
+
+app/static/style.css
+body {
+  font-family: 'Open Sans', sans-serif;
+  background-color: #F9F7F7;
+  color: #112D4E;
+  text-align: center;
+  padding: 40px;
+}
+.container {
+  max-width: 500px;
+  margin: auto;
+  background: #DBE2EF;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+}
+.btn {
+  background-color: #3F72AF;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn:hover { background-color: #112D4E; }
+.btn-danger {
+  background-color: #E74C3C;
+  margin-top: 10px;
+}
+
+
+Executar o sistema. No terminal:
+
+from app import db
+db.create_all()
+exit()
+
+Executar o projeto:
+
+python run.py
+
+
+Abrir o navegador e acessar:
+
+http://localhost:5000
+
+Resultado esperado
+
+
+Você verá uma tela inicial com o logotipo ApoioJá, o botão “Fazer uma denúncia” e o “Modo Silêncio”.
+Ao clicar em Fazer uma denúncia, o formulário será exibido, permitindo enviar dados que serão salvos no banco de dados apoioja.db.
+
+
+
+Próximos passos (para evoluir)
+
+- Adicionar chatbot com IA (Fase 2)
+- Adicionar testes automatizados e CI/CD (Fase 3)
+- Adicionar o “Mapa Seguro” usando API de mapas (Google ou Leaflet)
