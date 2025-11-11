@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ApoioJá - Início</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="home-container">
+    <div class="home-content">
+      <h1 class="home-title">💙 ApoioJá</h1>
+      <p class="home-subtitle">Um espaço seguro e anônimo para pedir ajuda e denunciar.</p>
+
+      <div class="home-actions">
+        <a href="/denuncia" class="btn btn-primary">🚨 Fazer uma Denúncia</a>
+        <button onclick="panicButton()" class="btn btn-silent">🕵️ Modo Silêncio</button>
+      </div>
+
+      <img src="{{ url_for('static', filename='apoioja_banner.png') }}" alt="Banner ApoioJá" class="home-banner">
+    </div>
+  </main>
+
+  <script>
+    function panicButton() {
+      try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+      window.location.href = 'https://www.google.com';
+    }
+  </script>
+</body>
+</html>

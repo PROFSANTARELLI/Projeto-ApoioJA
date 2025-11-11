@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Registrar Denúncia - ApoioJá</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">💙 ApoioJá</h1>
+    <button onclick="panicButton()" class="btn-silent" title="Modo Silêncio">🕵️</button>
+  </header>
+
+  <main class="page-center">
+    <div class="form-container">
+      <!-- Banner acima do formulário -->
+      <img src="{{ url_for('static', filename='apoioja_banner.png') }}" alt="Banner ApoioJá" class="banner-img">
+
+      <h2>Registrar Denúncia</h2>
+      <p class="subtitle">Seu relato é totalmente anônimo e protegido.</p>
+
+      <form id="formDenuncia" class="denuncia-form" autocomplete="off" novalidate>
+        <div class="form-group">
+          <label for="categoria">Categoria</label>
+          <input type="text" id="categoria" placeholder="Ex: violência doméstica" required>
+        </div>
+
+        <div class="form-group">
+          <label for="local">Local</label>
+          <input type="text" id="local" placeholder="Ex: residência, trabalho, rua..." required>
+        </div>
+
+        <div class="form-group">
+          <label for="descricao">Descrição</label>
+          <textarea id="descricao" placeholder="Descreva o ocorrido..." required></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">📨 Enviar Denúncia</button>
+          <button type="button" class="btn btn-secondary" onclick="clearFields()">🧹 Limpar Campos</button>
+          <button type="button" class="btn btn-secondary" onclick="toggleForm()">🙈 Esconder</button>
+        </div>
+      </form>
+
+      <p id="mensagem" class="mensagem" role="status"></p>
+
+      <!-- Mapa mock abaixo -->
+      <div class="map-container">
+        <h3>🗺️ Mapa Seguro </h3>
+        <img src="{{ url_for('static', filename='mapa_mock.png') }}" alt="Mapa Simulado" class="map-img">
+        <p class="map-caption">Mapa apenas ilustrativo enquanto a integração não está pronta.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  function clearFields() {
+    const form = document.getElementById('formDenuncia');
+    form.reset();
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+  }
+
+  function toggleForm() {
+    const form = document.getElementById('formDenuncia');
+    form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function panicButton() {
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+    window.location.href = 'https://www.google.com';
+  }
+
+  document.getElementById('formDenuncia').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+      category: document.getElementById('categoria').value.trim(),
+      description: document.getElementById('descricao').value.trim(),
+      location: document.getElementById('local').value.trim()
+    };
+
+    if (!data.category || !data.description || !data.location) {
+      document.getElementById('mensagem').innerText = 'Por favor, preencha todos os campos.';
+      document.getElementById('mensagem').style.color = '#E74C3C';
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (resp.ok) {
+        const json = await resp.json();
+        document.getElementById('mensagem').innerText = json.message || '✅ Denúncia enviada com sucesso.';
+        document.getElementById('mensagem').style.color = '#2E8B57';
+        clearFields(); // limpa automaticamente após o envio
+      } else {
+        document.getElementById('mensagem').innerText = '❌ Erro ao enviar denúncia. Tente novamente.';
+        document.getElementById('mensagem').style.color = '#E74C3C';
+      }
+    } catch (err) {
+      document.getElementById('mensagem').innerText = '⚠️ Falha de conexão com o servidor.';
+      document.getElementById('mensagem').style.color = '#E67E22';
+    }
+  });
+</script>
