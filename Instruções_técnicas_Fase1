@@ -567,19 +567,24 @@ textarea {
 }
 
 
-Executar o sistema. No terminal:
+Agora vá na pasta apoioja/app/static e baixe para seu projeto os arquivos PNG na mesma pasta correspondente em seu projeto (apoioja/app/static)
+apoioja_banner.png
+mapa_mock.png
+
+
+Agora, executar o sistema pelo terminal:
 
 Executar o projeto:
 
-python run.py
+python run.py (ou python3 run.py)
 
 
-Abrir o navegador e acessar:
+Abrir um navegador e acessar:
 
 http://localhost:5000
 
-Resultado esperado
 
+Resultado esperado:
 
 Você verá uma tela inicial com o logotipo ApoioJá, o botão “Fazer uma denúncia” e o “Modo Silêncio”.
 Ao clicar em Fazer uma denúncia, o formulário será exibido, permitindo enviar dados que serão salvos no banco de dados apoioja.db.
@@ -598,18 +603,16 @@ Cria o aplicativo (app = create_app()),
 
 Lê a configuração do banco ('sqlite:///apoioja.db'),
 
-E executa db.create_all() → isso cria as tabelas que estão definidas no models.py.
+E executa db.create_all() → isso cria as tabelas que estão definidas no models.py. Ou seja: se o arquivo apoioja.db não existir, o Flask vai criá-lo automaticamente e adicionar a tabela reports.
 
-Ou seja: se o arquivo apoioja.db não existir, o Flask vai criá-lo automaticamente e adicionar a tabela reports.
 
-3. Verificando se o banco foi criado
+Verificando se o banco foi criado
 
 Se você quiser confirmar manualmente que o banco está criado e funcionando, pode entrar no modo interativo do Python (shell) e rodar alguns comandos para inspecionar os dados.
 
 No terminal, dentro da pasta do projeto:
 
 python
-
 
 Isso abre o modo interativo do Python (vai aparecer >>>).
 
@@ -623,7 +626,6 @@ app.app_context().push()     # ativa o contexto do Flask (necessário para acess
 db.session.query(Report).count()
 
 O que esse comando faz:
-
 from app import create_app, db → importa a função que cria o app e o objeto do banco.
 from app.models import Report → importa o modelo (tabela) que criamos no banco.
 app = create_app() → inicializa o aplicativo Flask.
@@ -634,3 +636,5 @@ Se tudo estiver certo, você verá algo assim:
 
 0
 (ou outro número se já houver denúncias registradas).
+
+SIGA AGORA PARA A FASE 2
