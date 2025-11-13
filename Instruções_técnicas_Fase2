@@ -2,7 +2,7 @@ Resumo do objetivo:
 - Integrar um chatbot empático ao ApoioJá que:
 - seja acessado via widget (ícone 💬 flutuante);
 - comunique-se com backend Flask (/api/chat);
-- utilize Google Gemini (ou outra LLM) quando houver chave, com modo mock/fallback quando não houver;
+- utilize o token Google Gemini (ou outra LLM) ou com modo mock/fallback quando não houver token;
 
 
 1. Preparação
@@ -11,9 +11,9 @@ Resumo do objetivo:
 Ative venv se já não estiver ativo:
 # Windows
 venv\Scripts\activate
+
 # mac/linux
 source venv/bin/activate
-
 
 Instale dependências (Gemini SDK):
 pip install python-dotenv
@@ -61,7 +61,6 @@ try:
 except Exception:
     pass
 
-# Tente importar SDK (pode falhar em ambiente sem lib)
 try:
     import google.generativeai as genai
     HAS_GEMINI = True
@@ -272,7 +271,6 @@ def test_chat_post_ok(client):
 
 
 (Use fixture client do Flask testing).
-
 8. Segurança, privacidade e ética
 
 NUNCA exponha sua chave GEMINI_API_KEY no front-end ou em repositório público.
@@ -289,6 +287,7 @@ Rate-limit no backend para evitar abuso (ex.: max 5 requisições/min por IP, se
 O chatbot.py já inclui fallback.
 
 Alternativa: implementar um arquivo mocks/responses.json com padrões por tema (ansiedade, agressão etc.) e escolher por palavras-chave.
+
 
 10. Boas práticas de implementação
 
