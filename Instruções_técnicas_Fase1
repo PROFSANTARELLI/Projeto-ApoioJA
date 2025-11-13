@@ -3,19 +3,10 @@ Arquitetura Geral do Sistema
 A arquitetura será monolítica modular com separação lógica de camadas, ideal para projetos acadêmicos integrados:
 
 Frontend (HTML + CSS + JS)
-    ↓
 Flask (Controladores e Rotas)
-    ↓
-Camada de Modelos (SQLAlchemy)
-    ↓
 Banco de Dados SQLite
 
-
-Adicionalmente:
-- Camada /chatbot (para integração com Gemini na Fase 2)
-- Camada /tests (para Pytest e CI/CD na Fase 3)
-
-Estrutura de Pastas Recomendada. Crie o projeto base assim:
+Estrutura de Pastas. Crie o projeto base assim:
 
 apoioja/
 │
@@ -34,12 +25,18 @@ apoioja/
 ├── requirements.txt
 └── apoioja.db (será criado automaticamente)
 
+Adicionalmente:
+- Camada /chatbot (para integração com Gemini na Fase 2)
+- Camada /tests (para Pytest e CI/CD na Fase 3)
 
 Preparação do Ambiente. Passo 1: Criar o ambiente virtual
 mkdir apoioja
+
 cd apoioja
+
 python -m venv venv
-venv\Scripts\activate  # Windows OU  source venv/bin/activate     # Linux/Mac
+
+venv\Scripts\activate #Windows OU  source venv/bin/activate #Linux/Mac
 
 Passo 2: Instalar as dependências básicas
 python -m pip install --upgrade pip
@@ -47,7 +44,8 @@ pip install flask flask_sqlalchemy flask_cors flask_bcrypt
 pip freeze > requirements.txt
 
 
-Passo 3: Construir o run.py
+Passo 3: Construir o arquivo run.py na raiz do projeto (apoioja)
+
 from app import app, db
 
 with app.app_context():
@@ -58,7 +56,8 @@ if __name__ == "__main__":
 
 
 
-app/__init__.py
+
+Criar app/__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -73,7 +72,7 @@ from app import routes
 
 
 
-app/models.py
+Criar app/models.py
 from app import db
 from datetime import datetime
 
@@ -87,7 +86,7 @@ class Report(db.Model):
 
 
 
-app/routes.py
+Criar app/routes.py
 from flask import render_template, request, jsonify
 from app import app, db
 from app.models import Report
@@ -115,7 +114,7 @@ def create_report():
 
 
 
-app/templates/index.html
+Criar app/templates/index.html
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -151,7 +150,7 @@ app/templates/index.html
 
 
 
-app/templates/denuncia.html
+Criar app/templates/denuncia.html
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -267,7 +266,7 @@ app/templates/denuncia.html
 
 
 
-app/static/style.css
+Criar app/static/style.css
 /* =========================================================
    ESTILO GERAL DO PROJETO APOIOJÁ
    ========================================================= */
@@ -567,13 +566,12 @@ textarea {
 }
 
 
-Agora vá na pasta apoioja/app/static e baixe para seu projeto os arquivos PNG na mesma pasta correspondente em seu projeto (apoioja/app/static)
+Agora vá na minha pasta apoioja/app/static e baixe para seu projeto os arquivos PNG na mesma pasta correspondente em seu projeto (apoioja/app/static)
 apoioja_banner.png
 mapa_mock.png
 
 
 Agora, executar o sistema pelo terminal:
-
 Executar o projeto:
 
 python run.py (ou python3 run.py)
@@ -634,7 +632,6 @@ db.session.query(Report).count() → conta quantos registros existem na tabela r
 
 Se tudo estiver certo, você verá algo assim:
 
-0
-(ou outro número se já houver denúncias registradas).
+0 (ou outro número se já houver denúncias registradas).
 
 SIGA AGORA PARA A FASE 2
