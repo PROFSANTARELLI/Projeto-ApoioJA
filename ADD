@@ -1,16 +1,13 @@
-PROJETO APOIOJÁ — ROTEIRO COMPLETO PARA A EQUIPE DE QUALITY ASSURANCE 
+PROJETO APOIOJÁ — ROTEIRO DE QUALITY ASSURANCE 
 
 Objetivo geral
 
 O ApoioJá é uma aplicação web criada em Flask (Python) que permite o registro anônimo de denúncias de situações de risco ou vulnerabilidade e oferece um chatbot inteligente de acolhimento, baseado em IA empática (Google Gemini ou modo simulado).
 
 O objetivo desta fase é que os alunos de Quality Assurance:
-
-Compreendam a estrutura técnica do sistema (Fases 1 e 2);
-
-Planejem e executem testes unitários, funcionais, de usabilidade e de performance;
-
-Apliquem boas práticas de QA, CI/CD e documentação de resultados.
+1 - Compreendam a estrutura técnica do sistema (Fases 1 e 2);
+2 - Planejem e executem testes unitários, funcionais, de usabilidade e de performance;
+3 - Apliquem boas práticas de QA.
 
 VISÃO GERAL DA ARQUITETURA
 apoioja/
@@ -34,35 +31,23 @@ apoioja/
 
 FASE 1 — CONSTRUÇÃO E FUNCIONAMENTO BÁSICO DO SISTEMA
 Objetivo
+- Construir a base da aplicação ApoioJá, com:
+- Front-end (HTML, CSS, JS)
+- Back-end (Python + Flask)
+- Banco de dados SQLite
+- Página de denúncia funcional com envio e limpeza dos dados
 
-Construir a base da aplicação ApoioJá, com:
-
-Front-end (HTML, CSS, JS)
-
-Back-end (Python + Flask)
-
-Banco de dados SQLite
-
-Página de denúncia funcional com envio e limpeza dos dados
-
-Etapas de implementação
+Etapas de implementação (não esquecer de respeitar o esquema de pastas descrita acima)
 1. Configuração inicial
-pip install flask flask_sqlalchemy
+- Na linha de comando (ws ou vscode)
+mkdir apoioja
+cd apoioja
+python.exe -m pip install --upgrade pip
+pip install flask flask_sqlalchemy python-dotenv
 
 
-Estrutura de pastas:
-
-app/
-  ├── __init__.py
-  ├── routes.py
-  ├── models.py
-  ├── static/style.css
-  └── templates/
-run.py
-
-2. Banco de dados (SQLite)
-
-models.py:
+2. Criar arquivo do Banco de dados (SQLite):
+/apoioja/app/models.py
 
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -76,9 +61,9 @@ class Report(db.Model):
     location = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-3. Inicialização do app
 
-__init__.py:
+3. Aruivo de Inicialização do app
+/apoioja/app/__init__.py
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -98,7 +83,7 @@ def create_app():
     return app
 
 
-run.py:
+/apoioja/run.py:
 
 from app import create_app
 app = create_app()
@@ -106,9 +91,8 @@ app = create_app()
 if __name__ == "__main__":
     app.run(debug=True)
 
-4. Rotas e páginas
-
-routes.py:
+4. Arquivo de Rotas e páginas
+/apoioja/app/routes.py:
 
 from flask import render_template, request, jsonify
 from .models import db, Report
@@ -132,10 +116,24 @@ def api_reports():
     db.session.add(new_report)
     db.session.commit()
     return jsonify({"message": "Denúncia registrada com sucesso."})
+@app.route("/api/reports", methods=["GET"])
+def get_reports():     
+    reports = Report.query.all()
+    reports_list = [
+        {
+            "id": report.id,
+            "category": report.category,
+            "description": report.description,
+            "location": report.location,
+            "created_at": report.created_at
+        }
+        for report in reports
+    ]
+    return jsonify(reports_list)
+
 
 5. Front-end (Formulário)
-
-templates/denuncia.html
+/apoioja/app/templates/denuncia.html
 
 Formulário com campos Categoria, Local, Descrição
 
