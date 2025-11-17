@@ -1,0 +1,834 @@
+PROJETO APOIOJÁ — ROTEIRO DE QUALITY ASSURANCE 
+
+Objetivo geral
+
+O ApoioJá é uma aplicação web criada em Flask (Python) que permite o registro anônimo de denúncias de situações de risco ou vulnerabilidade e oferece um chatbot inteligente de acolhimento, baseado em IA empática (Google Gemini ou modo simulado).
+
+O objetivo desta fase é que os alunos de Quality Assurance:
+1 - Compreendam a estrutura técnica do sistema (Fases 1 e 2);
+2 - Planejem e executem testes unitários, funcionais, de usabilidade e de performance;
+3 - Apliquem boas práticas de QA.
+
+VISÃO GERAL DA ARQUITETURA
+apoioja/
+│
+├── app/
+│   ├── __init__.py           → configuração do app Flask
+│   ├── models.py             → modelo do banco de dados (tabela de denúncias)
+│   ├── routes.py             → rotas de navegação e API (inclui /api/chat)
+│   ├── chatbot.py            → integração com IA Gemini + fallback
+│   ├── static/
+│   │   ├── style.css         → estilos visuais (layout, chatbot, botões)
+│   │   └── apoioja_banner.png
+│   └── templates/
+│       ├── index.html        → página inicial (apresentação)
+│       └── denuncia.html     → página do formulário de denúncias + mapa + chatbot
+│
+├── apoioja.db                → banco SQLite local
+├── run.py                    → ponto de entrada do Flask
+├── requirements.txt           → dependências do projeto
+└── .env                      → chave GEMINI_API_KEY (opcional)
+
+FASE 1 — CONSTRUÇÃO E FUNCIONAMENTO BÁSICO DO SISTEMA
+Objetivo
+- Construir a base da aplicação ApoioJá, com:
+- Front-end (HTML, CSS, JS)
+- Back-end (Python + Flask)
+- Banco de dados SQLite
+- Página de denúncia funcional com envio e limpeza dos dados
+
+Etapas de implementação (não esquecer de respeitar o esquema de pastas descrita acima)
+1. Configuração inicial
+- Na linha de comando (ws ou vscode)
+mkdir apoioja
+cd apoioja
+python.exe -m pip install --upgrade pip
+pip install flask flask_sqlalchemy python-dotenv
+
+python -m venv venv
+venv\Scripts\activate #Windows OU  source venv/bin/activate #Linux/Mac
+
+
+2. Criar arquivo do Banco de dados (SQLite):
+/apoioja/app/models.py
+
+from . import db
+from datetime import datetime
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50))
+    description = db.Column(db.Text)
+    location = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    def __repr__(self):
+        return f"<Report {self.id} - {self.category}>"    
+
+
+3. Arquivo de Inicialização do app
+/apoioja/app/__init__.py
+
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+def create_app():
+    app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///apoioja.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    db.init_app(app)
+
+    from .routes import bp as main_bp
+    app.register_blueprint(main_bp)
+
+    # Cria as tabelas
+    with app.app_context():
+        db.create_all()
+
+    return app
+
+
+/apoioja/run.py:
+
+from app import create_app
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+4. Arquivo de Rotas e páginas
+/apoioja/app/routes.py:
+
+from flask import Blueprint, render_template, request, jsonify
+from .models import Report, db
+from .chatbot import get_gemini_response
+
+# Blueprint
+bp = Blueprint("main", __name__)
+
+@bp.route("/")
+def index():
+    return render_template("index.html")
+
+@bp.route("/denuncia")
+def denuncia():
+    return render_template("denuncia.html")
+
+@bp.route("/api/submit", methods=["POST"])
+def submit():
+    data = request.json
+    report = Report(
+        category=data.get("category"),
+        description=data.get("description"),
+        location=data.get("location")
+    )
+    db.session.add(report)
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Denúncia registrada com sucesso!"})
+
+@bp.route("/api/chat", methods=["POST"])
+def chat():
+    message = request.json.get("message")
+    reply = get_gemini_response(message)
+    return jsonify({"reply": reply})
+
+
+
+5. Front-end
+
+Criar /apoioja/app/templates/index.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ApoioJá - Início</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="home-container">
+    <div class="home-content">
+      <h1 class="home-title">💙 ApoioJá</h1>
+      <p class="home-subtitle">Um espaço seguro e anônimo para pedir ajuda e denunciar.</p>
+
+      <div class="home-actions">
+        <a href="/denuncia" class="btn btn-primary">🚨 Fazer uma Denúncia</a>
+        <button onclick="panicButton()" class="btn btn-silent">🕵️ Modo Silêncio</button>
+      </div>
+
+      <img src="{{ url_for('static', filename='apoioja_banner.png') }}" alt="Banner ApoioJá" class="home-banner">
+    </div>
+  </main>
+
+  <script>
+    function panicButton() {
+      try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+      window.location.href = 'https://www.google.com';
+    }
+  </script>
+</body>
+</html>
+
+
+/apoioja/app/templates/denuncia.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Registrar Denúncia - ApoioJá</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">💙 ApoioJá</h1>
+    <button onclick="panicButton()" class="btn-silent" title="Modo Silêncio">🕵️</button>
+  </header>
+
+  <main class="page-center">
+    <div class="form-container">
+      <!-- Banner acima do formulário -->
+      <img src="{{ url_for('static', filename='apoioja_banner.png') }}" alt="Banner ApoioJá" class="banner-img">
+
+      <h2>Registrar Denúncia</h2>
+      <p class="subtitle">Seu relato é totalmente anônimo e protegido.</p>
+
+      <form id="formDenuncia" class="denuncia-form" autocomplete="off" novalidate>
+        <div class="form-group">
+          <label for="categoria">Categoria</label>
+          <input type="text" id="categoria" placeholder="Ex: violência doméstica" required>
+        </div>
+
+        <div class="form-group">
+          <label for="local">Local</label>
+          <input type="text" id="local" placeholder="Ex: residência, trabalho, rua..." required>
+        </div>
+
+        <div class="form-group">
+          <label for="descricao">Descrição</label>
+          <textarea id="descricao" placeholder="Descreva o ocorrido..." required></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">📨 Enviar Denúncia</button>
+          <button type="button" class="btn btn-secondary" onclick="clearFields()">🧹 Limpar Campos</button>
+          <button type="button" class="btn btn-secondary" onclick="toggleForm()">🙈 Esconder</button>
+        </div>
+      </form>
+
+      <p id="mensagem" class="mensagem" role="status"></p>
+
+      <!-- Mapa mock abaixo -->
+      <div class="map-container">
+        <h3>🗺️ Mapa de delegacias próximas ou ligue 190 </h3>
+        <img src="{{ url_for('static', filename='mapa_mock.png') }}" alt="Mapa Simulado" class="map-img">
+        <p class="map-caption">Mapa apenas ilustrativo enquanto a integração não está pronta.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  function clearFields() {
+    const form = document.getElementById('formDenuncia');
+    form.reset();
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+  }
+
+  function toggleForm() {
+    const form = document.getElementById('formDenuncia');
+    form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function panicButton() {
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+    window.location.href = 'https://www.google.com';
+  }
+
+  document.getElementById('formDenuncia').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+      category: document.getElementById('categoria').value.trim(),
+      description: document.getElementById('descricao').value.trim(),
+      location: document.getElementById('local').value.trim()
+    };
+
+    if (!data.category || !data.description || !data.location) {
+      document.getElementById('mensagem').innerText = 'Por favor, preencha todos os campos.';
+      document.getElementById('mensagem').style.color = '#E74C3C';
+      return;
+    }
+
+try {
+  const resp = await fetch('/api/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  if (resp.ok) {
+    const json = await resp.json();
+    document.getElementById('mensagem').innerText = json.message || '✅ Denúncia enviada com sucesso.';
+    document.getElementById('mensagem').style.color = '#2E8B57';
+    clearFields(); // limpa automaticamente após o envio
+  } else {
+    document.getElementById('mensagem').innerText = '❌ Erro ao enviar denúncia. Tente novamente.';
+    document.getElementById('mensagem').style.color = '#E74C3C';
+  }
+} catch (err) {
+  document.getElementById('mensagem').innerText = '⚠️ Falha de conexão com o servidor.';
+  document.getElementById('mensagem').style.color = '#E67E22';
+}
+  });
+</script>
+</body>
+</html>
+
+  <script>
+  function clearFields() {
+    const form = document.getElementById('formDenuncia');
+    form.reset();
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+  }
+
+  function toggleForm() {
+    const form = document.getElementById('formDenuncia');
+    form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function panicButton() {
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+    window.location.href = 'https://www.google.com';
+  }
+
+  document.getElementById('formDenuncia').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+      category: document.getElementById('categoria').value.trim(),
+      description: document.getElementById('descricao').value.trim(),
+      location: document.getElementById('local').value.trim()
+    };
+
+    if (!data.category || !data.description || !data.location) {
+      document.getElementById('mensagem').innerText = 'Por favor, preencha todos os campos.';
+      document.getElementById('mensagem').style.color = '#E74C3C';
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (resp.ok) {
+        const json = await resp.json();
+        document.getElementById('mensagem').innerText = json.message || '✅ Denúncia enviada com sucesso.';
+        document.getElementById('mensagem').style.color = '#2E8B57';
+        clearFields(); // limpa automaticamente após o envio
+      } else {
+        document.getElementById('mensagem').innerText = '❌ Erro ao enviar denúncia. Tente novamente.';
+        document.getElementById('mensagem').style.color = '#E74C3C';
+      }
+    } catch (err) {
+      document.getElementById('mensagem').innerText = '⚠️ Falha de conexão com o servidor.';
+      document.getElementById('mensagem').style.color = '#E67E22';
+    }
+  });
+</script>
+</body>
+</html>
+
+- Formulário com campos Categoria, Local, Descrição
+- Botões “Enviar Denúncia”, “Limpar Campos”, “Esconder”
+- Mapa mockado (imagem estática)
+-  Banner do ApoioJá
+
+
+6. CSS da interface
+
+/apoioja/app/static/style.css
+/* =========================================================
+   ESTILO GERAL DO PROJETO APOIOJÁ
+   ========================================================= */
+:root {
+  --bg: #EAF6FF;         /* azul bem clarinho */
+  --card: #FFFFFF;
+  --accent: #3F72AF;
+  --muted: #6B7A90;
+  --success: #2E8B57;
+  --danger: #E74C3C;
+}
+
+/* ===== BASE ===== */
+body {
+  margin: 0;
+  font-family: "Open Sans", Arial, sans-serif;
+  background: var(--bg);
+  color: #112D4E;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5 {
+  margin: 0;
+}
+
+/* ===== TOPO ===== */
+.topbar {
+  background-color: var(--accent);
+  color: white;
+  padding: 10px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 3px 8px rgba(17,45,78,0.12);
+}
+
+.brand {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Botão discreto de modo silêncio */
+.btn-silent {
+  background: none;
+  color: white;
+  border: none;
+  font-size: 16px;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: 0.3s;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.btn-silent:hover {
+  opacity: 1;
+  background-color: rgba(255,255,255,0.1);
+}
+
+/* =========================================================
+   PÁGINA INICIAL
+   ========================================================= */
+.home-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bg);
+  text-align: center;
+  padding: 20px;
+}
+
+.home-content {
+  background-color: var(--card);
+  border-radius: 15px;
+  padding: 40px 60px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-width: 600px;
+  width: 90%;
+}
+
+.home-title {
+  font-size: 36px;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.home-subtitle {
+  font-size: 18px;
+  color: #112D4E;
+  margin-bottom: 30px;
+}
+
+.home-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+}
+
+/* Botões da página inicial */
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: white;
+}
+.btn-primary:hover {
+  background-color: #112D4E;
+}
+
+.btn-silent-home {
+  background-color: #F9F9F9;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  opacity: 0.8;
+  font-size: 14px;
+}
+.btn-silent-home:hover {
+  opacity: 1;
+  background-color: #DBE2EF;
+}
+
+.home-banner {
+  width: 280px;
+  margin-top: 10px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* =========================================================
+   PÁGINA DE DENÚNCIA
+   ========================================================= */
+.page-center {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 90vh;
+  padding: 40px 10px;
+}
+
+.form-container {
+  background: var(--card);
+  padding: 35px 45px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  text-align: center;
+  max-width: 700px;
+  width: 100%;
+}
+
+.banner-img {
+  width: 250px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* ===== Formulário ===== */
+h2 {
+  font-size: 26px;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 16px;
+  margin-bottom: 25px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #c8d4e7;
+  font-size: 15px;
+  color: #112D4E;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* ===== Botões ===== */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+.btn-secondary {
+  background-color: #DBE2EF;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.btn-secondary:hover {
+  background-color: var(--accent);
+  color: white;
+}
+
+.mensagem {
+  text-align: center;
+  color: var(--success);
+  font-weight: 600;
+  margin-top: 15px;
+  font-size: 16px;
+}
+
+/* ===== Mapa Mock ===== */
+.map-container {
+  background: #F8FAFF;
+  border-radius: 12px;
+  padding: 15px;
+  margin-top: 25px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.map-container h3 {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.map-img {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.map-caption {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+@media (max-width: 768px) {
+  .form-container {
+    padding: 25px;
+  }
+  .banner-img {
+    width: 200px;
+  }
+  .home-content {
+    padding: 25px 30px;
+  }
+  .home-title {
+    font-size: 30px;
+  }
+  .home-subtitle {
+    font-size: 16px;
+  }
+  .home-banner {
+    width: 220px;
+  }
+}
+@media (max-width: 480px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .home-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+
+
+o CSS define:
+- Fundo azul claro
+- Formulário centralizado
+- Banner superior
+- Mapa e botões estilizados
+- Fontes legíveis e responsivas
+
+Agora vá na minha pasta apoioja/app/static e baixe para seu projeto os arquivos PNG na mesma pasta correspondente em seu projeto (apoioja/app/static)
+apoioja_banner.png
+mapa_mock.png
+
+
+7. Verificação do banco
+No terminal de comando digite: python
+coloque linha a linha abaixo:
+from app import create_app, db
+from app.models import Report
+app = create_app()
+app.app_context().push()
+db.session.query(Report).count()
+0
+
+
+Se não houver erro, o banco está criado corretamente.
+
+FASE 2 — INTEGRAÇÃO DO CHATBOT INTELIGENTE
+
+Objetivo: Integrar um chatbot empático baseado na IA Gemini, com modo offline (fallback), widget flutuante e rota de API.
+
+Etapas de implementação
+1. Instalar dependências
+pip install python-dotenv google-generativeai
+
+2. Criar .env
+
+Na raiz do projeto:
+
+GEMINI_API_KEY=sua_chave_aqui
+
+
+Se não houver chave, o chatbot usa modo offline.
+
+3. Criar arquivo app/chatbot.py
+
+(Código completo entregue na aula — inclui fallback)
+
+4. Adicionar rota /api/chat em routes.py
+
+Permite comunicação entre o front-end e o modelo de IA.
+
+5. Inserir o widget do chatbot no front-end
+
+No final de index.html e denuncia.html, antes de </body>, inserir:
+
+HTML do chat (div + botão 💬)
+
+Script JS de controle de abertura, envio e exibição das mensagens.
+
+6. Garantir o CSS do chatbot
+
+Adicionar ao style.css (no final):
+
+.chatbot, .chat-toggle, .chat-header, .user-msg, .bot-msg, etc.
+
+7. Teste funcional
+
+Inicie o servidor:
+
+python run.py
+
+
+Acesse http://127.0.0.1:5000
+
+Clique no botão 💬 no canto inferior direito.
+
+Envie uma mensagem.
+
+Se o Gemini estiver ativo → resposta real de IA.
+
+Se não → mensagem de fallback (empática).
+
+
+FASE DE QA — TESTES E VALIDAÇÃO
+Objetivo
+
+Garantir que o sistema ApoioJá funcione corretamente e com qualidade sob todos os cenários.
+
+1️⃣ TESTES UNITÁRIOS
+Ferramenta
+pytest
+
+Arquivo sugerido: tests/test_app.py
+import json
+
+def test_index(client):
+    resp = client.get('/')
+    assert resp.status_code == 200
+
+def test_report_creation(client):
+    data = {"category":"teste","description":"desc","location":"local"}
+    resp = client.post('/api/reports', data=json.dumps(data), content_type='application/json')
+    assert resp.status_code == 200
+    assert b"sucesso" in resp.data
+
+def test_chat_api(client):
+    resp = client.post('/api/chat', json={"message":"oi"})
+    assert resp.status_code == 200
+    assert "reply" in resp.get_json()
+
+2️⃣ TESTES DE USABILIDADE
+
+Verificar:
+1 - Botões “Enviar”, “Limpar” e “Esconder” funcionam corretamente.
+2 - Após o envio, os campos são limpos automaticamente.
+3 - Chatbot abre e fecha facilmente.
+4 - As cores são harmoniosas e acessíveis (contraste adequado).
+
+Ferramentas:
+Inspeção com ferramenta
+
+3️⃣ TESTES DE INTEGRAÇÃO
+Cenário:
+1 - Enviar uma denúncia → verificar registro no banco.
+2 - Abrir chatbot → enviar mensagem → receber resposta.
+3 - confirmar resposta fallback.
+
+
+4️⃣ TESTES DE PERFORMANCE
+Objetivo:
+
+Avaliar tempo de resposta das rotas:
+
+/api/reports
+/api/chat
+
+Ferramenta sugerida:
+Apache Benchmark (ab)
+
+Exemplo:
+
+ab -n 50 -c 10 http://127.0.0.1:5000/api/chat
+
+5️⃣ TESTES DE SEGURANÇA
+Pontos de verificação:
+
+1 - Nenhum dado pessoal sensível armazenado no banco.
+2 - A chave GEMINI_API_KEY não aparece em logs ou código público.
+3 - Formulários escapam HTML (XSS protegido).
+4- Chatbot não permite scripts no input (escapeHtml() no JS previne isso).
+
+6️⃣ CI/CD
+Configurar GitHub Actions:
+name: ApoioJa CI
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - run: pip install -r requirements.txt
+      - run: pytest
+
+
+RELATÓRIO FINAL DE QA
+
+Cada grupo deve entregar:
+
+- Plano de testes (unitário, funcional, usabilidade, performance).
+- Evidências de execução (prints, logs ou relatórios de ferramenta).
+- Execução CI/CD automática.
+
+RESULTADOS ESPERADOS
+✅ Aplicação funcional com formulário e chatbot
+✅ Testes de API e UI documentados
+✅ Boas práticas de QA aplicadas
+✅ Uso seguro de dados
+✅ Relatório técnico com evidências de testes
