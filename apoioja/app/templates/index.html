@@ -21,11 +21,62 @@
     </div>
   </main>
 
+  <!-- Chatbot widget (botão) -->
+  <div id="chatbot" class="chatbot" style="display:none;">
+    <div class="chat-header">🤖 ApoioJá Chat</div>
+    <div id="chat-box" class="chat-box"></div>
+    <div class="chat-input">
+      <input id="chatMessage" type="text" placeholder="Escreva aqui..." />
+      <button id="sendChat">Enviar</button>
+    </div>
+  </div>
+  <button id="openChat" class="chat-toggle">💬</button>
+
   <script>
     function panicButton() {
-      try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+      try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
       window.location.href = 'https://www.google.com';
     }
+
+    // Chat widget JS (reaproveitado também em denuncia.html)
+    (function(){
+      const chatDiv = document.getElementById("chatbot");
+      const toggle = document.getElementById("openChat");
+      const sendBtn = document.getElementById("sendChat");
+      const chatBox = document.getElementById("chat-box");
+      const input = document.getElementById("chatMessage");
+
+      toggle.addEventListener("click", () => {
+        const visible = chatDiv.style.display === "block";
+        chatDiv.style.display = visible ? "none" : "block";
+      });
+
+      async function sendMessage(){
+        const text = input.value.trim();
+        if(!text) return;
+        chatBox.innerHTML += `<div class="user-msg">${escapeHtml(text)}</div>`;
+        input.value = "";
+        try {
+          const resp = await fetch("/api/chat", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({message: text})
+          });
+          const data = await resp.json();
+          chatBox.innerHTML += `<div class="bot-msg">${escapeHtml(data.reply || data.error || "Sem resposta")}</div>`;
+        } catch {
+          chatBox.innerHTML += `<div class="bot-msg">Erro de conexão.</div>`;
+        }
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      input.addEventListener("keydown", (e) => { if(e.key === "Enter") sendMessage(); });
+
+      function escapeHtml(unsafe){
+        return unsafe.replace(/[&<"'>]/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"})[m]; });
+      }
+    })();
   </script>
 </body>
 </html>
