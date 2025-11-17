@@ -60,56 +60,75 @@ if __name__ == "__main__":
 Criar app/__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///apoioja.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-CORS(app)
+db = SQLAlchemy()
 
-from app import routes
+def create_app():
+    app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///apoioja.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    db.init_app(app)
+
+    from .routes import bp as main_bp
+    app.register_blueprint(main_bp)
+
+    # Cria as tabelas
+    with app.app_context():
+        db.create_all()
+
+    return app
 
 
 
 Criar app/models.py
-from app import db
+from . import db
 from datetime import datetime
 
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(100))
+    category = db.Column(db.String(50))
     description = db.Column(db.Text)
     location = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    def __repr__(self):
+        return f"<Report {self.id} - {self.category}>"    
 
 
 
 Criar app/routes.py
-from flask import render_template, request, jsonify
-from app import app, db
-from app.models import Report
+from flask import Blueprint, render_template, request, jsonify
+from .models import Report, db
+from .chatbot import get_gemini_response
 
-@app.route('/')
+# Blueprint
+bp = Blueprint("main", __name__)
+
+@bp.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/denuncia')
+@bp.route("/denuncia")
 def denuncia():
-    return render_template('denuncia.html')
+    return render_template("denuncia.html")
 
-@app.route('/api/reports', methods=['POST'])
-def create_report():
-    data = request.get_json()
-    new_report = Report(
-        category=data.get('category'),
-        description=data.get('description'),
-        location=data.get('location')
+@bp.route("/api/submit", methods=["POST"])
+def submit():
+    data = request.json
+    report = Report(
+        category=data.get("category"),
+        description=data.get("description"),
+        location=data.get("location")
     )
-    db.session.add(new_report)
+    db.session.add(report)
     db.session.commit()
-    return jsonify({"message": "Denúncia registrada com sucesso!"}), 201
+    return jsonify({"status": "ok", "message": "Denúncia registrada com sucesso!"})
+
+@bp.route("/api/chat", methods=["POST"])
+def chat():
+    message = request.json.get("message")
+    reply = get_gemini_response(message)
+    return jsonify({"reply": reply})
 
 
 
