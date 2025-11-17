@@ -14,7 +14,6 @@
 
   <main class="page-center">
     <div class="form-container">
-      <!-- Banner acima do formulário -->
       <img src="{{ url_for('static', filename='apoioja_banner.png') }}" alt="Banner ApoioJá" class="banner-img">
 
       <h2>Registrar Denúncia</h2>
@@ -45,20 +44,29 @@
 
       <p id="mensagem" class="mensagem" role="status"></p>
 
-      <!-- Mapa mock abaixo -->
       <div class="map-container">
-        <h3>🗺️ Mapa Seguro </h3>
+        <h3>🗺️ Mapa de delegacias próximas ou ligue 190 </h3>
         <img src="{{ url_for('static', filename='mapa_mock.png') }}" alt="Mapa Simulado" class="map-img">
         <p class="map-caption">Mapa apenas ilustrativo enquanto a integração não está pronta.</p>
       </div>
     </div>
   </main>
 
+  <!-- Chatbot widget / botão -->
+  <div id="chatbot" class="chatbot" style="display:none;">
+    <div class="chat-header">🤖 ApoioJá Chat</div>
+    <div id="chat-box" class="chat-box"></div>
+    <div class="chat-input">
+      <input id="chatMessage" type="text" placeholder="Escreva aqui..." />
+      <button id="sendChat">Enviar</button>
+    </div>
+  </div>
+  <button id="openChat" class="chat-toggle">💬</button>
+
   <script>
   function clearFields() {
     const form = document.getElementById('formDenuncia');
     form.reset();
-    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
   }
 
   function toggleForm() {
@@ -87,7 +95,7 @@
     }
 
     try {
-      const resp = await fetch('/api/reports', {
+      const resp = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -95,16 +103,56 @@
 
       if (resp.ok) {
         const json = await resp.json();
-        document.getElementById('mensagem').innerText = json.message || '✅ Denúncia enviada com sucesso.';
+        document.getElementById('mensagem').innerText = json.message;
         document.getElementById('mensagem').style.color = '#2E8B57';
-        clearFields(); // limpa automaticamente após o envio
+        clearFields();
       } else {
-        document.getElementById('mensagem').innerText = '❌ Erro ao enviar denúncia. Tente novamente.';
-        document.getElementById('mensagem').style.color = '#E74C3C';
+        document.getElementById('mensagem').innerText = '❌ Erro ao enviar denúncia.';
       }
-    } catch (err) {
-      document.getElementById('mensagem').innerText = '⚠️ Falha de conexão com o servidor.';
-      document.getElementById('mensagem').style.color = '#E67E22';
+    } catch {
+      document.getElementById('mensagem').innerText = '⚠️ Erro ao conectar ao servidor.';
     }
   });
-</script>
+
+  // Chat widget JS (mesmo do index)
+  (function(){
+    const chatDiv = document.getElementById("chatbot");
+    const toggle = document.getElementById("openChat");
+    const sendBtn = document.getElementById("sendChat");
+    const chatBox = document.getElementById("chat-box");
+    const input = document.getElementById("chatMessage");
+
+    toggle.addEventListener("click", () => {
+      const visible = chatDiv.style.display === "block";
+      chatDiv.style.display = visible ? "none" : "block";
+    });
+
+    async function sendMessage(){
+      const text = input.value.trim();
+      if(!text) return;
+      chatBox.innerHTML += `<div class="user-msg">${escapeHtml(text)}</div>`;
+      input.value = "";
+      try {
+        const resp = await fetch("/api/chat", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({message: text})
+        });
+        const data = await resp.json();
+        chatBox.innerHTML += `<div class="bot-msg">${escapeHtml(data.reply || data.error || "Sem resposta")}</div>`;
+      } catch {
+        chatBox.innerHTML += `<div class="bot-msg">Erro de conexão.</div>`;
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    input.addEventListener("keydown", (e) => { if(e.key === "Enter") sendMessage(); });
+
+    function escapeHtml(unsafe){
+      return unsafe.replace(/[&<"'>]/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"})[m]; });
+    }
+  })();
+  </script>
+</body>
+</html>
