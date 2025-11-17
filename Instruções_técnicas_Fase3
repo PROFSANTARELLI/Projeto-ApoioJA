@@ -40,8 +40,7 @@ Objetivo
 Etapas de implementação (não esquecer de respeitar o esquema de pastas descrita acima)
 1. Configuração inicial
 - Na linha de comando (ws ou vscode)
-mkdir apoioja
-cd apoioja
+
 python.exe -m pip install --upgrade pip
 pip install flask flask_sqlalchemy python-dotenv
 
